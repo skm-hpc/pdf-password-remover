@@ -45,10 +45,18 @@
     }
     </script>
 
-    <!-- Third-party PDF libraries: all processing is performed in the browser. -->
-    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <!-- PDF.js is used only for optional page-count inspection. It never renders pages during unlock. -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!--
+        QPDF WebAssembly runtime.
+        The package exposes its Emscripten factory as window.Module. Loading the
+        runtime this way is more reliable on a static GitHub Pages site than
+        dynamically importing the package through an ESM CDN.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/@neslinesli93/qpdf-wasm@0.3.0/dist/qpdf.js"></script>
+    <!-- JSZip packages successful batch outputs into one ZIP for Download All Files. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -295,6 +303,65 @@
             opacity: .8;
         }
 
+        .mode-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: -2px 0 10px;
+        }
+
+        .mode-switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            color: var(--text-main);
+            font-size: .82rem;
+            font-weight: 650;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .mode-switch input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .switch-track {
+            width: 38px;
+            height: 21px;
+            padding: 3px;
+            border-radius: 999px;
+            background: rgba(148,163,184,.20);
+            border: 1px solid var(--border-color);
+            transition: .2s ease;
+        }
+
+        .switch-thumb {
+            display: block;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            transition: transform .2s ease, background .2s ease;
+        }
+
+        .mode-switch input:checked + .switch-track {
+            background: #7c3aed;
+            border-color: rgba(167,139,250,.65);
+        }
+
+        .mode-switch input:checked + .switch-track .switch-thumb {
+            transform: translateX(17px);
+            background: #fff;
+        }
+
+        .mode-hint {
+            color: var(--text-muted);
+            font-size: .72rem;
+        }
+
         .file-upload-wrapper {
             position: relative;
             width: 100%;
@@ -386,6 +453,257 @@
             text-overflow: ellipsis;
         }
 
+        .multi-upload-panel {
+            display: none;
+            margin-top: 2px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: rgba(255,255,255,.02);
+        }
+
+        .multi-upload-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 9px;
+        }
+
+        .multi-upload-title {
+            color: var(--text-main);
+            font-size: .82rem;
+            font-weight: 700;
+        }
+
+        .multi-upload-hint {
+            color: var(--text-muted);
+            font-size: .7rem;
+            line-height: 1.35;
+            margin: 0 0 10px;
+        }
+
+        .add-pdf-btn {
+            width: auto;
+            min-width: 112px;
+            padding: 9px 13px;
+            border: 1px solid rgba(139,92,246,.45);
+            border-radius: 9px;
+            background: rgba(139,92,246,.12);
+            color: var(--text-main);
+            font-size: .78rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .add-pdf-btn:hover {
+            background: rgba(139,92,246,.20);
+            border-color: rgba(167,139,250,.7);
+        }
+
+        .add-pdf-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+        .multi-empty {
+            padding: 14px 10px;
+            border: 1px dashed var(--border-color);
+            border-radius: 10px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: .75rem;
+        }
+
+        .batch-file-list {
+            display: none;
+            gap: 8px;
+            margin-top: 9px;
+            max-height: 330px;
+            overflow-y: auto;
+        }
+
+        .batch-file-item {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(210px, .9fr) auto;
+            gap: 8px;
+            align-items: center;
+            padding: 9px;
+            border: 1px solid var(--border-color);
+            border-radius: 11px;
+            background: rgba(255,255,255,.025);
+        }
+
+        .batch-file-name {
+            min-width: 0;
+            color: var(--text-main);
+            font-size: .78rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .batch-file-size {
+            display: block;
+            margin-top: 2px;
+            color: var(--text-muted);
+            font-size: .66rem;
+        }
+
+        .batch-password {
+            width: 100%;
+            padding: 9px 10px;
+            background: rgba(0,0,0,.18);
+            border: 1px solid var(--border-color);
+            border-radius: 9px;
+            color: var(--text-main);
+            outline: none;
+        }
+
+        .batch-password:focus {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139,92,246,.10);
+        }
+
+        .batch-remove {
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: rgba(148,163,184,.08);
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .batch-remove:hover {
+            color: var(--text-main);
+            background: rgba(239,68,68,.12);
+        }
+
+        .batch-results {
+            display: none;
+            margin-top: 12px;
+            gap: 8px;
+        }
+
+        .batch-result {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 9px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: rgba(255,255,255,.025);
+        }
+
+        .batch-result-name {
+            min-width: 0;
+            color: var(--text-main);
+            font-size: .78rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .batch-result .mini-download {
+            flex: 0 0 auto;
+            padding: 7px 10px;
+            border-radius: 8px;
+            background: rgba(16,185,129,.14);
+            border: 1px solid rgba(16,185,129,.28);
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: .72rem;
+            font-weight: 700;
+        }
+
+        .batch-result.failed .batch-result-name {
+            color: var(--error-color);
+        }
+
+        .download-all-btn {
+            display: none;
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            width: 100%;
+            min-height: 52px;
+            margin-top: 14px;
+            padding: 0 20px;
+            border: 1px solid rgba(99, 102, 241, .55);
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(59,130,246,.16), rgba(139,92,246,.20), rgba(236,72,153,.14));
+            color: #f8fafc;
+            font-size: .92rem;
+            font-weight: 800;
+            letter-spacing: .01em;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(59,130,246,.10), inset 0 1px 0 rgba(255,255,255,.10);
+            transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+        }
+
+        .download-all-btn::before {
+            content: "↓";
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            margin-right: 10px;
+            border-radius: 9px;
+            background: rgba(255,255,255,.10);
+            border: 1px solid rgba(255,255,255,.14);
+            font-size: 1rem;
+            font-weight: 900;
+            vertical-align: -3px;
+            transition: transform .22s ease, background .22s ease;
+        }
+
+        .download-all-btn::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,.12) 45%, transparent 70%);
+            transform: translateX(-120%);
+            transition: transform .65s ease;
+        }
+
+        .download-all-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, rgba(59,130,246,.27), rgba(139,92,246,.32), rgba(236,72,153,.24));
+            border-color: rgba(129,140,248,.82);
+            box-shadow: 0 14px 34px rgba(99,102,241,.22), inset 0 1px 0 rgba(255,255,255,.14);
+            transform: translateY(-2px);
+        }
+
+        .download-all-btn:hover:not(:disabled)::before {
+            transform: translateY(-1px) scale(1.06);
+            background: rgba(255,255,255,.16);
+        }
+
+        .download-all-btn:hover:not(:disabled)::after {
+            transform: translateX(120%);
+        }
+
+        .download-all-btn:active:not(:disabled) {
+            transform: translateY(0) scale(.99);
+        }
+
+        .download-all-btn:focus-visible {
+            outline: 2px solid rgba(129,140,248,.95);
+            outline-offset: 3px;
+        }
+
+        .download-all-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .multi-only { display: none; }
+
         .pwd-container { position: relative; }
 
         input[type="password"],
@@ -456,14 +774,6 @@
         }
 
         .option-box select { padding: 10px 11px; font-size: .84rem; }
-
-        .mode-note {
-            margin-top: -6px;
-            margin-bottom: 18px;
-            font-size: .73rem;
-            line-height: 1.5;
-            color: var(--text-muted);
-        }
 
         /* Buttons */
         .button-row {
@@ -750,6 +1060,14 @@
                 transition-duration: .001ms !important;
             }
         }
+        @media (max-width: 640px) {
+            .batch-file-item {
+                grid-template-columns: 1fr auto;
+            }
+            .batch-password { grid-column: 1 / -1; }
+            .batch-remove { grid-column: 2; grid-row: 1; }
+        }
+
     </style>
 </head>
 
@@ -793,13 +1111,31 @@
                 <span class="label-hint">PDF only</span>
             </label>
 
+            <div class="mode-toggle-row">
+                <label class="mode-switch" for="multi-file-mode">
+                    <input type="checkbox" id="multi-file-mode">
+                    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                    <span>Multiple PDFs</span>
+                </label>
+                <span class="mode-hint" id="mode-hint">Single file mode</span>
+            </div>
+
             <div class="file-upload-wrapper" id="drop-zone">
                 <input type="file" id="pdf-file" accept="application/pdf,.pdf" aria-label="Select locked PDF">
                 <div class="drop-content">
                     <div class="drop-icon">📄</div>
                     <span class="file-name-display" id="file-name">Click or drag file here</span>
-                    <span class="drop-hint">Maximum browser memory depends on your device</span>
+                    <span class="drop-hint" id="drop-hint">Maximum browser memory depends on your device</span>
                 </div>
+            </div>
+
+            <div class="multi-upload-panel" id="multi-upload-panel">
+                <div class="multi-upload-header">
+                    <span class="multi-upload-title">Add multiple PDF files</span>
+                    <button type="button" class="add-pdf-btn" id="add-pdf-btn">＋ Upload PDFs</button>
+                </div>
+                <p class="multi-upload-hint">Select multiple PDFs at once. Each PDF appears separately below with its own password field.</p>
+                <div class="multi-empty" id="multi-empty">No PDFs added yet. Click “Upload PDFs” to select one or more files.</div>
             </div>
 
             <div class="file-meta" id="file-meta">
@@ -816,9 +1152,11 @@
                     <span class="meta-value" id="meta-pages">Detecting…</span>
                 </div>
             </div>
+
+            <div class="batch-file-list" id="batch-file-list" aria-live="polite"></div>
         </div>
 
-        <div class="input-group">
+        <div class="input-group" id="single-password-group">
             <label for="pdf-password">
                 <span>Password</span>
                 <span class="label-hint">Required for protected PDFs</span>
@@ -829,31 +1167,6 @@
             </div>
         </div>
 
-        <div class="options-grid">
-            <div class="option-box">
-                <label for="render-scale">Recovery quality</label>
-                <select id="render-scale">
-                    <option value="1.25">Standard — smaller file</option>
-                    <option value="1.5" selected>High — balanced</option>
-                    <option value="2">Maximum — sharper output</option>
-                </select>
-            </div>
-
-            <div class="option-box">
-                <label for="jpeg-quality">Image compression</label>
-                <select id="jpeg-quality">
-                    <option value="0.80">80% — compact</option>
-                    <option value="0.90" selected>90% — balanced</option>
-                    <option value="0.95">95% — high quality</option>
-                </select>
-            </div>
-        </div>
-
-        <p class="mode-note">
-            The tool first attempts direct decryption to preserve the original PDF structure.
-            If the encryption cannot be handled directly, Deep Recovery renders each page into a new unlocked PDF.
-        </p>
-
         <div class="button-row">
             <button class="btn" id="process-btn" type="button">
                 <span id="btn-text">Unlock File</span>
@@ -861,6 +1174,9 @@
             </button>
             <button class="btn secondary" id="clear-btn" type="button">Clear</button>
         </div>
+
+        <div class="batch-results" id="batch-results"></div>
+        <button class="download-all-btn" id="download-all-btn" type="button">Download All Files</button>
 
         <button class="btn secondary" id="cancel-btn" type="button">Cancel processing</button>
 
@@ -915,17 +1231,68 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<script>
-    const { PDFDocument } = PDFLib;
-    const { jsPDF } = window.jspdf;
+<script type="module">
+    /*
+     * PrimeRonin PDF Unlocker
+     *
+     * Direct PDF decryption architecture:
+     *   PDF + password -> QPDF compiled to WebAssembly -> unencrypted PDF
+     *
+     * No page rendering, PNG conversion, JPEG conversion, or jsPDF rebuild is
+     * used for the normal unlock operation. QPDF rewrites the PDF structure
+     * while preserving the document's PDF content instead of rasterizing pages.
+     */
+
+    const QPDF_VERSION = '0.3.0';
+    const QPDF_WASM_URL = `https://cdn.jsdelivr.net/npm/@neslinesli93/qpdf-wasm@${QPDF_VERSION}/dist/qpdf.wasm`;
+
+    let qpdfPromise = null;
+
+    /**
+     * Load the QPDF Emscripten module once.
+     *
+     * qpdf-wasm 0.3.0 exposes the factory as window.Module when qpdf.js is
+     * loaded with a normal script tag. This avoids ESM/CJS interop problems
+     * on GitHub Pages.
+     */
+    async function loadQPDF() {
+        if (!qpdfPromise) {
+            qpdfPromise = (async () => {
+                if (typeof window.Module !== 'function') {
+                    throw new Error('QPDF_RUNTIME_NOT_LOADED');
+                }
+
+                return window.Module({
+                    locateFile: () => QPDF_WASM_URL,
+                    noInitialRun: true,
+                    print: message => console.debug('[QPDF]', message),
+                    printErr: message => console.debug('[QPDF]', message)
+                });
+            })().catch(error => {
+                qpdfPromise = null;
+                throw error;
+            });
+        }
+
+        return qpdfPromise;
+    }
 
     const fileInput = document.getElementById('pdf-file');
     const dropZone = document.getElementById('drop-zone');
+    const multiUploadPanel = document.getElementById('multi-upload-panel');
+    const addPdfBtn = document.getElementById('add-pdf-btn');
+    const multiEmpty = document.getElementById('multi-empty');
     const fileNameDisplay = document.getElementById('file-name');
+    const dropHint = document.getElementById('drop-hint');
     const fileMeta = document.getElementById('file-meta');
     const metaName = document.getElementById('meta-name');
     const metaSize = document.getElementById('meta-size');
     const metaPages = document.getElementById('meta-pages');
+    const multiFileMode = document.getElementById('multi-file-mode');
+    const modeHint = document.getElementById('mode-hint');
+    const batchFileList = document.getElementById('batch-file-list');
+    const batchResults = document.getElementById('batch-results');
+    const singlePasswordGroup = document.getElementById('single-password-group');
 
     const passwordInput = document.getElementById('pdf-password');
     const togglePwdBtn = document.getElementById('toggle-pwd');
@@ -937,12 +1304,10 @@
 
     const statusText = document.getElementById('status-text');
     const downloadBtn = document.getElementById('download-btn');
+    const downloadAllBtn = document.getElementById('download-all-btn');
     const progressBar = document.getElementById('progress-bar');
     const progressContainer = document.getElementById('progress-container');
     const progressLabel = document.getElementById('progress-label');
-
-    const renderScaleInput = document.getElementById('render-scale');
-    const jpegQualityInput = document.getElementById('jpeg-quality');
 
     const themeToggle = document.getElementById('theme-toggle');
     const modalBackdrop = document.getElementById('modal-backdrop');
@@ -955,15 +1320,16 @@
     let outputUrl = null;
     let cancelRequested = false;
     let toastTimer = null;
+    let multiFiles = [];
+    let batchOutputUrls = [];
 
     const modalData = {
         privacy: {
             title: 'Privacy Policy',
             html: `
-                <p><strong>Local processing:</strong> PDF processing is performed inside your browser using JavaScript libraries loaded by this page.</p>
-                <p>Your selected file and password are kept in browser memory while processing. This application does not contain code that intentionally uploads the PDF to a remote processing endpoint.</p>
-                <p><strong>Third-party libraries:</strong> PDF.js, pdf-lib and jsPDF are loaded from public CDNs. Loading those libraries requires your browser to request those library files from their respective CDN hosts.</p>
-                <p>For maximum privacy, use a trusted local copy of this HTML file after the libraries have been made available locally.</p>
+                <p><strong>Local processing:</strong> the selected PDF and password are processed inside your browser.</p>
+                <p>The application does not upload your PDF to a PrimeRonin processing server. QPDF runs locally through WebAssembly. The QPDF JavaScript and WebAssembly library files are loaded from public CDNs when the unlock operation starts.</p>
+                <p>Your PDF remains in browser memory until the page is closed or the file is cleared.</p>
             `
         },
         terms: {
@@ -971,21 +1337,20 @@
             html: `
                 <p>This utility is provided as-is for lawful personal and educational use.</p>
                 <p>You are responsible for ensuring that you have the right to unlock, decrypt, reproduce or otherwise process every PDF you select.</p>
-                <p>The Deep Recovery mode creates a new PDF by rendering pages as images. This can change searchable text, forms, links, bookmarks, annotations and other interactive PDF structures.</p>
+                <p><strong>Important:</strong> unlocking an encrypted PDF rewrites the PDF file. The output is not byte-for-byte identical to the input, and any digital signature on the original document should be treated as no longer valid after the file is rewritten.</p>
                 <p>No guarantee is made that every encrypted, damaged or non-standard PDF can be recovered.</p>
             `
         },
         about: {
             title: 'About PrimeRonin',
             html: `
-                <p><strong>PrimeRonin PDF Unlocker</strong> is a browser-based PDF utility focused on local processing and practical recovery options.</p>
-                <p>The tool retains the original direct-decryption workflow and adds a visual recovery path for PDFs that cannot be opened through the standard route.</p>
+                <p><strong>PrimeRonin PDF Unlocker</strong> is a browser-based PDF utility focused on local, structure-preserving password removal.</p>
+                <p>The normal unlock path uses QPDF compiled to WebAssembly. It removes PDF encryption without rendering pages to PNG or JPEG images.</p>
                 <p>Author: <strong>PrimeRonin</strong>.</p>
             `
         }
     };
 
-    // Convert a byte count into a human-readable file size.
     function formatBytes(bytes) {
         if (!Number.isFinite(bytes) || bytes < 0) return '—';
         if (bytes === 0) return '0 B';
@@ -994,12 +1359,10 @@
         return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
     }
 
-    // Remove the existing .pdf suffix before constructing the output filename.
     function stripPdfExtension(name) {
         return String(name || 'document.pdf').replace(/\.pdf$/i, '');
     }
 
-    // Release the previous Blob URL to prevent unnecessary browser memory usage.
     function revokeOutputUrl() {
         if (outputUrl) {
             URL.revokeObjectURL(outputUrl);
@@ -1007,126 +1370,391 @@
         }
     }
 
-    // Validate both the MIME type and filename because browser MIME detection varies.
     function isPdfFile(file) {
         if (!file) return false;
-        return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+        return file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
     }
 
-    // Register a newly selected PDF and refresh all file-related UI information.
-    function selectFile(file) {
+    function setLoading(loading) {
+        processBtn.disabled = loading;
+        clearBtn.disabled = loading;
+        fileInput.disabled = loading;
+        multiFileMode.disabled = loading;
+        passwordInput.disabled = loading;
+        addPdfBtn.disabled = loading;
+        batchFileList.querySelectorAll('.batch-password, .batch-remove').forEach(control => {
+            control.disabled = loading;
+        });
+        loader.style.display = loading ? 'block' : 'none';
+        btnText.textContent = loading ? 'Unlocking…' : (isMultiMode() ? 'Unlock All Files' : 'Unlock File');
+        cancelBtn.style.display = loading ? 'inline-flex' : 'none';
+    }
+
+    function updateStatus(message, type = 'info') {
+        statusText.textContent = message || '';
+        statusText.className = `status-msg ${type}`;
+    }
+
+    function resetProgress() {
+        progressBar.style.width = '0%';
+        progressLabel.textContent = '0%';
+        progressContainer.style.display = 'none';
+        progressLabel.style.display = 'none';
+    }
+
+    function showToast(message) {
+        clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.add('show');
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+
+    function showModal(key) {
+        const item = modalData[key];
+        if (!item) return;
+        modalTitle.textContent = item.title;
+        modalContent.innerHTML = item.html;
+        modalBackdrop.classList.add('show');
+    }
+
+    function closeModal() {
+        modalBackdrop.classList.remove('show');
+    }
+
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('primeronin-theme', theme);
+        if (themeToggle) {
+            themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+            themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+            themeToggle.title = theme === 'dark' ? 'Light theme' : 'Dark theme';
+        }
+    }
+
+    function isMultiMode() {
+        return Boolean(multiFileMode.checked);
+    }
+
+    function updateModeUI() {
+        const multi = isMultiMode();
+
+        // Multi mode allows selecting several PDFs in one picker action.
+        // Each selected PDF is still stored as an independent item with its own password.
+        fileInput.multiple = multi;
+
+        singlePasswordGroup.style.display = multi ? 'none' : 'block';
+        dropZone.style.display = multi ? 'none' : 'flex';
+        multiUploadPanel.style.display = multi ? 'block' : 'none';
+        batchFileList.style.display = multi && multiFiles.length ? 'grid' : 'none';
+        batchResults.style.display = multi && batchOutputUrls.length ? 'grid' : 'none';
+        downloadAllBtn.style.display = multi && batchOutputUrls.length ? 'block' : 'none';
+        downloadAllBtn.disabled = multi && batchOutputUrls.length === 0;
+        downloadBtn.style.display = multi ? 'none' : (outputUrl ? 'flex' : 'none');
+        fileMeta.style.display = !multi && currentFile ? 'grid' : 'none';
+
+        modeHint.textContent = multi
+            ? 'Select multiple PDFs — each has its own password'
+            : 'Single file mode';
+
+        fileNameDisplay.textContent = currentFile ? currentFile.name : 'Click or drag file here';
+        btnText.textContent = multi ? 'Unlock All Files' : 'Unlock File';
+
+        multiEmpty.style.display = multi && !multiFiles.length ? 'block' : 'none';
+    }
+
+    function clearBatchOutputUrls() {
+        for (const url of batchOutputUrls) {
+            try { URL.revokeObjectURL(url); } catch (_) {}
+        }
+        batchOutputUrls = [];
+        if (downloadAllBtn) {
+            downloadAllBtn.style.display = 'none';
+            downloadAllBtn.disabled = true;
+        }
+    }
+
+    function createBatchId() {
+        return `batch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function addBatchFiles(files) {
+        const incoming = Array.from(files || []).filter(isPdfFile);
+        if (!incoming.length) {
+            updateStatus('Please select at least one PDF file.', 'error');
+            showToast('Only PDF files are supported.');
+            return;
+        }
+
+        const existingKeys = new Set(multiFiles.map(item => `${item.file.name}|${item.file.size}|${item.file.lastModified}`));
+        for (const file of incoming) {
+            const key = `${file.name}|${file.size}|${file.lastModified}`;
+            if (!existingKeys.has(key)) {
+                multiFiles.push({ id: createBatchId(), file, password: '', status: 'pending', outputUrl: null, error: '' });
+                existingKeys.add(key);
+            }
+        }
+
+        currentFile = null;
+        fileInput.value = '';
+        revokeOutputUrl();
+        clearBatchOutputUrls();
+        renderBatchFileList();
+        updateModeUI();
+        updateStatus(`${incoming.length} PDF${incoming.length === 1 ? '' : 's'} added. Enter the password beside each file.`, 'info');
+    }
+
+    function renderBatchFileList() {
+        batchFileList.innerHTML = '';
+        if (!multiFiles.length) {
+            batchFileList.style.display = 'none';
+            multiEmpty.style.display = isMultiMode() ? 'block' : 'none';
+            return;
+        }
+
+        multiEmpty.style.display = 'none';
+
+        for (const item of multiFiles) {
+            const row = document.createElement('div');
+            row.className = 'batch-file-item';
+            row.dataset.id = item.id;
+
+            const info = document.createElement('div');
+            info.innerHTML = `<div class="batch-file-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</div><span class="batch-file-size">${formatBytes(item.file.size)} · Password for this file</span>`;
+
+            const pwd = document.createElement('input');
+            pwd.type = 'password';
+            pwd.className = 'batch-password';
+            pwd.placeholder = 'Enter password';
+            pwd.autocomplete = 'off';
+            pwd.spellcheck = false;
+            pwd.value = item.password;
+            pwd.setAttribute('aria-label', `Password for ${item.file.name}`);
+            pwd.addEventListener('input', () => { item.password = pwd.value; });
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'batch-remove';
+            remove.textContent = '×';
+            remove.title = 'Remove this PDF';
+            remove.setAttribute('aria-label', `Remove ${item.file.name}`);
+            remove.addEventListener('click', () => {
+                multiFiles = multiFiles.filter(entry => entry.id !== item.id);
+                renderBatchFileList();
+                updateModeUI();
+                updateStatus(multiFiles.length ? `${multiFiles.length} PDF${multiFiles.length === 1 ? '' : 's'} selected.` : '', 'info');
+            });
+
+            row.append(info, pwd, remove);
+            batchFileList.appendChild(row);
+        }
+
+        batchFileList.style.display = 'grid';
+    }
+
+    function escapeHtml(value) {
+        return String(value || '').replace(/[&<>'"]/g, char => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[char]));
+    }
+
+    function updateSelectedFile(file) {
         if (!file) return;
 
         if (!isPdfFile(file)) {
-            updateStatus('Please select a valid PDF file.', 'error');
-            showToast('Only PDF files are accepted.');
+            currentFile = null;
+            fileInput.value = '';
+            fileMeta.style.display = 'none';
+            updateStatus('The selected file is not a PDF.', 'error');
+            showToast('Please select a PDF file.');
             return;
         }
 
         currentFile = file;
-        fileInput.value = '';
-
+        multiFiles = [];
+        clearBatchOutputUrls();
+        batchFileList.innerHTML = '';
+        batchResults.innerHTML = '';
+        batchResults.style.display = 'none';
         fileNameDisplay.textContent = file.name;
-        fileNameDisplay.style.color = 'var(--text-main)';
-
         metaName.textContent = file.name;
         metaSize.textContent = formatBytes(file.size);
-        metaPages.textContent = 'Detecting…';
+        metaPages.textContent = 'Checking…';
         fileMeta.style.display = 'grid';
+        downloadBtn.style.display = 'none';
+        downloadAllBtn.style.display = 'none';
+        revokeOutputUrl();
+        updateModeUI();
+        updateStatus('PDF selected. Enter the password and click Unlock File.', 'info');
 
-        resetUI(false);
-        detectPageCount(file);
+        inspectPageCount(file).catch(() => {
+            metaPages.textContent = 'Protected';
+        });
     }
 
-    // Read the PDF with PDF.js only to determine metadata such as page count.
-    async function detectPageCount(file) {
+    function handleSelectedFiles(files) {
+        const list = Array.from(files || []);
+        if (isMultiMode()) {
+            addBatchFiles(list);
+        } else {
+            updateSelectedFile(list[0] || null);
+        }
+    }
+
+    async function inspectPageCount(file) {
+        if (!window.pdfjsLib) {
+            metaPages.textContent = '—';
+            return;
+        }
+
         try {
             const buffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: buffer });
-
-            loadingTask.onProgress = function(progressData) {
-                if (progressData && Number.isFinite(progressData.loaded) && progressData.total) {
-                    const pct = Math.min(100, Math.round(progressData.loaded / progressData.total * 100));
-                    metaPages.textContent = `Reading ${pct}%`;
-                }
-            };
-
-            const pdf = await loadingTask.promise;
-            metaPages.textContent = `${pdf.numPages} page${pdf.numPages === 1 ? '' : 's'}`;
+            const task = window.pdfjsLib.getDocument({ data: buffer });
+            const pdf = await task.promise;
+            metaPages.textContent = String(pdf.numPages);
             await pdf.destroy();
-        } catch (err) {
-            // Encrypted PDFs may require a password before PDF.js can reveal page count.
+        } catch (error) {
+            // Encrypted PDFs commonly require a password before PDF.js exposes page count.
             metaPages.textContent = 'Protected';
         }
     }
 
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) selectFile(e.target.files[0]);
-    });
+    async function unlockWithQPDF(file, password) {
+        if (cancelRequested) throw new Error('PROCESS_CANCELLED');
 
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.add('drag-over');
-        });
-    });
+        updateStatus('Loading direct PDF decryption engine…', 'info');
+        const qpdf = await loadQPDF();
 
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.remove('drag-over');
-        });
-    });
+        if (cancelRequested) throw new Error('PROCESS_CANCELLED');
 
-    dropZone.addEventListener('drop', (e) => {
-        const file = e.dataTransfer.files && e.dataTransfer.files[0];
-        if (file) selectFile(file);
-    });
+        const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const inputPath = `/primeronin_input_${id}.pdf`;
+        const outputPath = `/primeronin_output_${id}.pdf`;
+        const passwordPath = `/primeronin_password_${id}.txt`;
+        const arrayBuffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
 
-    togglePwdBtn.addEventListener('click', () => {
-        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-        passwordInput.setAttribute('type', type);
-        togglePwdBtn.textContent = type === 'password' ? 'Show' : 'Hide';
-        togglePwdBtn.setAttribute('aria-label', type === 'password' ? 'Show password' : 'Hide password');
-    });
+        // Keep QPDF's diagnostics so the UI can distinguish an incorrect
+        // password from a malformed/unsupported PDF.
+        const diagnostics = [];
+        const previousPrintErr = qpdf.printErr;
+        qpdf.printErr = message => {
+            diagnostics.push(String(message));
+            console.debug('[QPDF]', message);
+            if (typeof previousPrintErr === 'function') previousPrintErr(message);
+        };
 
-    processBtn.addEventListener('click', startProcess);
-    cancelBtn.addEventListener('click', () => {
-        cancelRequested = true;
-        updateStatus('Cancelling…', 'warning');
-        cancelBtn.disabled = true;
-    });
+        try {
+            qpdf.FS.writeFile(inputPath, bytes);
 
-    clearBtn.addEventListener('click', () => {
-        cancelRequested = true;
-        clearAll();
-    });
+            // Password-file mode is deliberately used first. It avoids command-
+            // line parsing/encoding edge cases for passwords containing spaces,
+            // leading dashes, quotes, equals signs or non-ASCII characters.
+            const passwordBytes = new TextEncoder().encode(`${password}\n`);
+            qpdf.FS.writeFile(passwordPath, passwordBytes);
 
-    passwordInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !processBtn.disabled) startProcess();
-    });
+            progressContainer.style.display = 'block';
+            progressLabel.style.display = 'block';
+            progressBar.style.width = '20%';
+            progressLabel.textContent = '20%';
 
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            e.preventDefault();
-            if (!processBtn.disabled) startProcess();
-        }
+            if (cancelRequested) throw new Error('PROCESS_CANCELLED');
 
-        if (e.key === 'Escape') {
-            if (modalBackdrop.classList.contains('open')) closeModal();
-            else if (!processBtn.disabled) clearAll();
-            else {
-                cancelRequested = true;
-                updateStatus('Cancelling…', 'warning');
+            updateStatus('Checking the PDF password…', 'info');
+
+            // First verify the supplied password against the actual encryption
+            // handler. This prevents a misleading success state with a bad key.
+            let checkExit;
+            try {
+                checkExit = qpdf.callMain([
+                    '--password-file=' + passwordPath,
+                    '--requires-password',
+                    inputPath
+                ]);
+            } catch (error) {
+                throw new Error(`QPDF_CHECK_ERROR:${error?.message || String(error)}`);
             }
-        }
-    });
 
-    // Primary processing controller: standard decryption is attempted first;
-    // the visual recovery pipeline is used when direct saving is not possible.
+            // --requires-password returns 3 when the supplied password is valid
+            // for an encrypted/password-protected input. It returns 0 when a
+            // password is required but none was supplied, and 2 for invalid/
+            // otherwise unusable input according to QPDF's CLI contract.
+            if (typeof checkExit === 'number' && checkExit === 2) {
+                const detail = diagnostics.join(' ');
+                if (/invalid password|password/i.test(detail)) {
+                    throw new Error('QPDF_INVALID_PASSWORD');
+                }
+                // Some Emscripten builds do not propagate the CLI exit code.
+                // In that case continue to the actual decrypt operation below.
+            }
+
+            if (cancelRequested) throw new Error('PROCESS_CANCELLED');
+
+            progressBar.style.width = '45%';
+            progressLabel.textContent = '45%';
+            updateStatus('Removing PDF encryption without converting pages…', 'info');
+
+            diagnostics.length = 0;
+
+            let exitCode = 0;
+            try {
+                exitCode = qpdf.callMain([
+                    '--password-file=' + passwordPath,
+                    '--decrypt',
+                    inputPath,
+                    outputPath
+                ]);
+            } catch (error) {
+                throw new Error(`QPDF_ERROR:${error?.message || String(error)}`);
+            }
+
+            if (cancelRequested) throw new Error('PROCESS_CANCELLED');
+
+            progressBar.style.width = '80%';
+            progressLabel.textContent = '80%';
+
+            const diagnosticText = diagnostics.join(' ');
+
+            if (typeof exitCode === 'number' && exitCode !== 0) {
+                if (/invalid password|password/i.test(diagnosticText)) {
+                    throw new Error('QPDF_INVALID_PASSWORD');
+                }
+                throw new Error(`QPDF_EXIT_${exitCode}:${diagnosticText}`);
+            }
+
+            let outputBytes;
+            try {
+                outputBytes = qpdf.FS.readFile(outputPath);
+            } catch (error) {
+                throw new Error(`QPDF_OUTPUT_MISSING:${diagnosticText}`);
+            }
+
+            if (!outputBytes || outputBytes.length < 5) {
+                throw new Error('QPDF_OUTPUT_INVALID');
+            }
+
+            const header = new TextDecoder('latin1').decode(outputBytes.slice(0, 5));
+            if (header !== '%PDF-') {
+                throw new Error('QPDF_OUTPUT_NOT_PDF');
+            }
+
+            progressBar.style.width = '100%';
+            progressLabel.textContent = '100%';
+
+            return new Uint8Array(outputBytes);
+        } finally {
+            qpdf.printErr = previousPrintErr;
+            try { qpdf.FS.unlink(inputPath); } catch (_) {}
+            try { qpdf.FS.unlink(outputPath); } catch (_) {}
+            try { qpdf.FS.unlink(passwordPath); } catch (_) {}
+        }
+    }
+
     async function startProcess() {
+        if (isMultiMode()) {
+            await startBatchProcess();
+            return;
+        }
+
         const file = currentFile || fileInput.files[0];
         const password = passwordInput.value;
 
@@ -1149,335 +1777,354 @@
 
         cancelRequested = false;
         setLoading(true);
-        progressContainer.style.display = 'none';
-        progressLabel.style.display = 'none';
-        updateStatus('Attempting standard decryption…', 'info');
-
-        let arrayBuffer;
+        resetProgress();
+        updateStatus('Preparing direct PDF unlock…', 'info');
 
         try {
-            arrayBuffer = await file.arrayBuffer();
-        } catch (err) {
-            updateStatus('Unable to read the selected file.', 'error');
-            setLoading(false);
-            return;
-        }
-
-        if (cancelRequested) {
-            setLoading(false);
-            return;
-        }
-
-        let standardSuccess = false;
-
-        const originalWarn = console.warn;
-        const originalError = console.error;
-
-        try {
-            console.warn = function() {};
-            console.error = function() {};
-
-            const pdfDoc = await PDFDocument.load(arrayBuffer, {
-                password: password
-            });
+            const pdfBytes = await unlockWithQPDF(file, password);
 
             if (cancelRequested) throw new Error('PROCESS_CANCELLED');
 
-            const pdfBytes = await pdfDoc.save();
             finishProcess(pdfBytes, file.name);
-            standardSuccess = true;
-        } catch (err) {
-            if (err && err.message === 'PROCESS_CANCELLED') {
-                updateStatus('Processing cancelled.', 'warning');
-            }
-        } finally {
-            console.warn = originalWarn;
-            console.error = originalError;
+        } catch (error) {
+            handleUnlockError(error);
+            setLoading(false);
+            resetProgress();
         }
+    }
 
-        if (standardSuccess || cancelRequested) {
-            if (cancelRequested) setLoading(false);
+    function handleUnlockError(error) {
+        const message = String(error?.message || error || '');
+
+        if (message === 'PROCESS_CANCELLED') {
+            updateStatus('Processing cancelled.', 'warning');
+        } else if (/QPDF_INVALID_PASSWORD|password|invalid password|incorrect/i.test(message)) {
+            updateStatus('Password was not accepted by the PDF encryption handler. Please enter the exact password used to open this PDF.', 'error');
+        } else if (/QPDF_CHECK_ERROR|QPDF_EXIT_|QPDF_OUTPUT_|QPDF_ERROR:|failed to open|unable to open/i.test(message)) {
+            updateStatus('QPDF could not decrypt this PDF. Check the password and make sure the file is not corrupted.', 'error');
+        } else {
+            console.error(error);
+            updateStatus('Failed to process the PDF. Please try again with a valid password and PDF.', 'error');
+        }
+    }
+
+    async function startBatchProcess() {
+        if (!multiFiles.length) {
+            updateStatus('Select one or more PDF files first.', 'error');
+            showToast('Select multiple PDFs before unlocking.');
             return;
         }
 
-        updateStatus('Advanced encryption detected. Activating Deep Recovery…', 'warning');
-
-        // Preserve the original asynchronous fallback behavior while allowing cancellation.
-        setTimeout(async () => {
-            if (cancelRequested) {
-                setLoading(false);
-                return;
-            }
-
-            try {
-                await visualRecoveryUnlock(file, password);
-            } catch (fallbackErr) {
-                if (cancelRequested || fallbackErr.message === 'PROCESS_CANCELLED') {
-                    updateStatus('Processing cancelled.', 'warning');
-                } else if (
-                    fallbackErr.name === 'PasswordException' ||
-                    /password/i.test(fallbackErr.message || '')
-                ) {
-                    updateStatus('Incorrect password. Please try again.', 'error');
-                } else {
-                    updateStatus('Failed to process PDF: Ensure the file is not corrupted or unsupported.', 'error');
-                }
-                setLoading(false);
-                cancelBtn.style.display = 'none';
-            }
-        }, 100);
-    }
-
-    // Deep Recovery renders each decrypted page to an image and rebuilds a new PDF.
-    // This supports PDFs whose encryption cannot be directly rewritten by pdf-lib.
-    async function visualRecoveryUnlock(file, password) {
-        const arrayBuffer = await file.arrayBuffer();
-
-        const loadingTask = pdfjsLib.getDocument({
-            data: arrayBuffer,
-            password: password
-        });
-
-        const pdf = await loadingTask.promise;
-        const totalPages = pdf.numPages;
-
-        if (!totalPages) {
-            throw new Error('No pages found in PDF.');
+        const missingPassword = multiFiles.find(item => !item.password);
+        if (missingPassword) {
+            updateStatus(`Enter the password for: ${missingPassword.file.name}`, 'error');
+            const input = batchFileList.querySelector(`[data-id="${missingPassword.id}"] .batch-password`);
+            if (input) input.focus();
+            return;
         }
 
-        const scale = parseFloat(renderScaleInput.value) || 1.5;
-        const jpegQuality = parseFloat(jpegQualityInput.value) || 0.90;
+        cancelRequested = false;
+        clearBatchOutputUrls();
+        batchResults.innerHTML = '';
+        batchResults.style.display = 'grid';
+        setLoading(true);
+        resetProgress();
 
-        // Start with a correctly sized page instead of forcing every PDF into portrait.
-        const firstPage = await pdf.getPage(1);
-        const firstViewport = firstPage.getViewport({ scale: 1 });
+        let successCount = 0;
+        let failureCount = 0;
 
-        const firstOrientation = firstViewport.width >= firstViewport.height ? 'l' : 'p';
-        const pdfDoc = new jsPDF({
-            orientation: firstOrientation,
-            unit: 'mm',
-            format: 'a4',
-            compress: true
-        });
+        try {
+            for (let index = 0; index < multiFiles.length; index++) {
+                const item = multiFiles[index];
+                if (cancelRequested) break;
 
-        progressContainer.style.display = 'block';
-        progressLabel.style.display = 'block';
-        progressBar.style.width = '0%';
-        progressLabel.textContent = '0%';
+                item.status = 'processing';
+                const base = Math.round((index / multiFiles.length) * 100);
+                progressContainer.style.display = 'block';
+                progressLabel.style.display = 'block';
+                progressBar.style.width = `${base}%`;
+                progressLabel.textContent = `${base}%`;
+                updateStatus(`Unlocking ${index + 1} of ${multiFiles.length}: ${item.file.name}`, 'info');
 
-        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-            if (cancelRequested) {
-                await pdf.destroy();
-                throw new Error('PROCESS_CANCELLED');
-            }
+                try {
+                    const bytes = await unlockWithQPDF(item.file, item.password);
+                    if (cancelRequested) break;
 
-            updateStatus(`Rebuilding page ${pageNum} of ${totalPages}…`, 'warning');
+                    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+                    batchOutputUrls.push(url);
+                    item.outputUrl = url;
+                    item.status = 'success';
+                    item.error = '';
+                    successCount++;
 
-            const page = pageNum === 1 ? firstPage : await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale: scale });
-
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
-
-            canvas.width = Math.ceil(viewport.width);
-            canvas.height = Math.ceil(viewport.height);
-
-            await page.render({
-                canvasContext: context,
-                viewport: viewport,
-                intent: 'print'
-            }).promise;
-
-            if (cancelRequested) {
-                await pdf.destroy();
-                throw new Error('PROCESS_CANCELLED');
-            }
-
-            const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
-            const imgProps = pdfDoc.getImageProperties(imgData);
-
-            // Convert the source aspect ratio into a page that fits inside A4.
-            const a4Portrait = [210, 297];
-            const a4Landscape = [297, 210];
-            const sourceRatio = imgProps.width / imgProps.height;
-            const pageRatioLandscape = a4Landscape[0] / a4Landscape[1];
-
-            const useLandscape = sourceRatio >= 1.15 || Math.abs(sourceRatio - pageRatioLandscape) < 0.12;
-            const pageWidth = useLandscape ? a4Landscape[0] : a4Portrait[0];
-            const pageHeight = useLandscape ? a4Landscape[1] : a4Portrait[1];
-
-            if (pageNum === 1) {
-                // Replace the initial default page if orientation differs.
-                const initialPageSize = pdfDoc.internal.pageSize;
-                if (
-                    (useLandscape && initialPageSize.getWidth() < initialPageSize.getHeight()) ||
-                    (!useLandscape && initialPageSize.getWidth() > initialPageSize.getHeight())
-                ) {
-                    pdfDoc.deletePage(1);
-                    pdfDoc.addPage([pageWidth, pageHeight]);
+                    appendBatchResult(item, url);
+                } catch (error) {
+                    item.status = 'failed';
+                    item.error = String(error?.message || error || 'Failed');
+                    failureCount++;
+                    appendBatchResult(item, null);
                 }
+
+                const completed = Math.round(((index + 1) / multiFiles.length) * 100);
+                progressBar.style.width = `${completed}%`;
+                progressLabel.textContent = `${completed}%`;
+            }
+
+            if (cancelRequested) {
+                updateStatus(`Processing cancelled. ${successCount} PDF${successCount === 1 ? '' : 's'} unlocked before cancellation.`, 'warning');
+            } else if (failureCount === 0) {
+                updateStatus(`${successCount} PDF${successCount === 1 ? '' : 's'} unlocked successfully.`, 'success');
+                showToast('All PDFs unlocked successfully.');
             } else {
-                pdfDoc.addPage([pageWidth, pageHeight]);
+                updateStatus(`${successCount} unlocked, ${failureCount} failed. Check the results below.`, 'warning');
+            }
+        } finally {
+            setLoading(false);
+            progressContainer.style.display = 'none';
+            progressLabel.style.display = 'none';
+        }
+    }
+
+    function appendBatchResult(item, url) {
+        const row = document.createElement('div');
+        row.className = `batch-result${url ? '' : ' failed'}`;
+
+        const name = document.createElement('span');
+        name.className = 'batch-result-name';
+        name.textContent = url ? `✓ ${item.file.name}` : `✕ ${item.file.name} — password rejected or PDF could not be decrypted`;
+
+        row.appendChild(name);
+
+        if (url) {
+            const link = document.createElement('a');
+            link.className = 'mini-download';
+            link.href = url;
+            link.download = `Unlocked_${stripPdfExtension(item.file.name)}.pdf`;
+            link.textContent = 'Download';
+            row.appendChild(link);
+        }
+
+        batchResults.appendChild(row);
+        batchResults.style.display = 'grid';
+        if (isMultiMode() && batchOutputUrls.length) {
+            downloadAllBtn.style.display = 'block';
+            downloadAllBtn.disabled = false;
+        }
+    }
+
+    async function downloadAllBatchFiles() {
+        const successfulItems = multiFiles.filter(item => item.status === 'success' && item.outputUrl);
+        if (!successfulItems.length) {
+            updateStatus('There are no successfully unlocked PDFs to download.', 'warning');
+            return;
+        }
+
+        if (typeof JSZip === 'undefined') {
+            updateStatus('The ZIP download component could not be loaded. Please try again.', 'error');
+            showToast('Download All is temporarily unavailable.');
+            return;
+        }
+
+        const originalText = downloadAllBtn.textContent;
+        downloadAllBtn.disabled = true;
+        downloadAllBtn.textContent = 'Preparing ZIP…';
+
+        try {
+            const zip = new JSZip();
+            const usedNames = new Set();
+
+            for (const item of successfulItems) {
+                const response = await fetch(item.outputUrl);
+                if (!response.ok) throw new Error(`Unable to read unlocked PDF: ${item.file.name}`);
+                const bytes = await response.arrayBuffer();
+
+                const baseName = `Unlocked_${stripPdfExtension(item.file.name)}.pdf`;
+                let zipName = baseName;
+                let counter = 2;
+                while (usedNames.has(zipName)) {
+                    zipName = `Unlocked_${stripPdfExtension(item.file.name)} (${counter++}).pdf`;
+                }
+                usedNames.add(zipName);
+                zip.file(zipName, bytes);
             }
 
-            const availableW = pageWidth - 8;
-            const availableH = pageHeight - 8;
-            const fitScale = Math.min(availableW / imgProps.width, availableH / imgProps.height);
-            const drawW = imgProps.width * fitScale;
-            const drawH = imgProps.height * fitScale;
-            const x = (pageWidth - drawW) / 2;
-            const y = (pageHeight - drawH) / 2;
-
-            pdfDoc.addImage(imgData, 'JPEG', x, y, drawW, drawH, undefined, 'FAST');
-
-            // Release page-level resources as soon as possible.
-            canvas.width = 1;
-            canvas.height = 1;
-
-            const percent = Math.round((pageNum / totalPages) * 100);
-            progressBar.style.width = `${percent}%`;
-            progressLabel.textContent = `${percent}%`;
-
-            // Yield to the browser so the UI stays responsive.
-            await new Promise(resolve => setTimeout(resolve, 10));
-        }
-
-        await pdf.destroy();
-
-        if (cancelRequested) throw new Error('PROCESS_CANCELLED');
-
-        const pdfBytes = pdfDoc.output('arraybuffer');
-        finishProcess(pdfBytes, file.name);
-    }
-
-    // Create the final browser download and expose it through the download button.
-    function finishProcess(data, filename) {
-        revokeOutputUrl();
-
-        const blob = new Blob([data], { type: 'application/pdf' });
-        outputUrl = URL.createObjectURL(blob);
-
-        downloadBtn.href = outputUrl;
-        downloadBtn.download = `Unlocked_${stripPdfExtension(filename)}.pdf`;
-        downloadBtn.style.display = 'flex';
-
-        updateStatus('Success! Password removed. Your unlocked PDF is ready.', 'success');
-        setLoading(false);
-        progressContainer.style.display = 'none';
-        progressLabel.style.display = 'none';
-
-        showToast('PDF unlocked successfully.');
-    }
-
-    // Reset transient processing state without reloading the page.
-    function resetUI(clearFile = true) {
-        revokeOutputUrl();
-
-        downloadBtn.style.display = 'none';
-        statusText.textContent = '';
-        statusText.className = 'status-msg';
-        progressContainer.style.display = 'none';
-        progressLabel.style.display = 'none';
-        progressBar.style.width = '0%';
-        progressLabel.textContent = '0%';
-
-        if (clearFile) {
-            currentFile = null;
-            fileInput.value = '';
-            fileNameDisplay.textContent = 'Click or drag file here';
-            fileNameDisplay.style.color = 'var(--text-muted)';
-            fileMeta.style.display = 'none';
-            metaName.textContent = '—';
-            metaSize.textContent = '—';
-            metaPages.textContent = '—';
+            const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `PrimeRonin_Unlocked_PDFs_${new Date().toISOString().slice(0, 10)}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1500);
+            showToast(`${successfulItems.length} unlocked PDF${successfulItems.length === 1 ? '' : 's'} packaged successfully.`);
+        } catch (error) {
+            console.error('Download All failed:', error);
+            updateStatus(`Could not prepare the ZIP download: ${error.message || error}`, 'error');
+            showToast('Could not prepare Download All.');
+        } finally {
+            downloadAllBtn.disabled = false;
+            downloadAllBtn.textContent = originalText;
         }
     }
 
-    // Clear the complete form and return the application to its initial state.
     function clearAll() {
         cancelRequested = true;
+        currentFile = null;
+        multiFiles = [];
+        fileInput.value = '';
         passwordInput.value = '';
-        passwordInput.setAttribute('type', 'password');
-        togglePwdBtn.textContent = 'Show';
-        togglePwdBtn.setAttribute('aria-label', 'Show password');
-
-        resetUI(true);
+        batchFileList.innerHTML = '';
+        batchResults.innerHTML = '';
+        batchResults.style.display = 'none';
+        fileNameDisplay.textContent = 'Click or drag file here';
+        fileMeta.style.display = 'none';
+        downloadBtn.style.display = 'none';
+        revokeOutputUrl();
+        clearBatchOutputUrls();
+        resetProgress();
+        updateStatus('', 'info');
         setLoading(false);
-        cancelBtn.style.display = 'none';
-        cancelBtn.disabled = false;
-        updateStatus('Ready for a new PDF.', 'info');
+        cancelRequested = false;
+        updateModeUI();
     }
 
-    // Centralized status renderer used by validation, recovery and error handlers.
-    function updateStatus(msg, type) {
-        statusText.textContent = msg;
-        statusText.className = `status-msg ${type}`;
-    }
+    downloadAllBtn.addEventListener('click', downloadAllBatchFiles);
 
-    // Lock interactive controls while a processing operation is active.
-    function setLoading(isLoading) {
-        processBtn.disabled = isLoading;
-        clearBtn.disabled = isLoading;
-        btnText.style.display = isLoading ? 'none' : 'block';
-        loader.style.display = isLoading ? 'block' : 'none';
-        cancelBtn.style.display = isLoading ? 'flex' : 'none';
-        cancelBtn.disabled = false;
-    }
-
-    // Display a short non-blocking notification for user actions.
-    function showToast(message) {
-        toast.textContent = message;
-        toast.classList.add('show');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
-    }
-
-    // Theme preference is non-sensitive UI state.
-    // Apply and persist the selected visual theme.
-    function applyTheme(theme) {
-        const light = theme === 'light';
-        document.body.classList.toggle('light-theme', light);
-        themeToggle.textContent = light ? '☾' : '☼';
-        themeToggle.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
-        themeToggle.title = light ? 'Switch to dark theme' : 'Switch to light theme';
-    }
-
-    const savedTheme = localStorage.getItem('primeRoninTheme');
-    applyTheme(savedTheme === 'light' ? 'light' : 'dark');
-
-    themeToggle.addEventListener('click', () => {
-        const next = document.body.classList.contains('light-theme') ? 'dark' : 'light';
-        localStorage.setItem('primeRoninTheme', next);
-        applyTheme(next);
+    fileInput.addEventListener('change', event => {
+        const files = event.target.files;
+        if (isMultiMode()) {
+            // Multi mode accepts several PDFs in one picker action and creates
+            // one independent password row for every selected PDF.
+            addBatchFiles(files);
+        } else {
+            handleSelectedFiles(files);
+        }
     });
 
-    // Render one of the built-in informational dialogs.
-    function openModal(type) {
-        const data = modalData[type];
-        if (!data) return;
+    addPdfBtn.addEventListener('click', () => {
+        if (!isMultiMode() || addPdfBtn.disabled) return;
+        fileInput.value = '';
+        fileInput.multiple = true;
+        fileInput.click();
+    });
 
-        modalTitle.textContent = data.title;
-        modalContent.innerHTML = data.html;
-        modalBackdrop.classList.add('open');
-        modalClose.focus();
-    }
+    multiFileMode.addEventListener('change', () => {
+        if (multiFileMode.checked) {
+            currentFile = null;
+            fileInput.value = '';
+            fileMeta.style.display = 'none';
+            revokeOutputUrl();
+            updateStatus('Multiple PDF mode enabled. Add each PDF separately, then enter its password.', 'info');
+        } else {
+            multiFiles = [];
+            batchFileList.innerHTML = '';
+            batchResults.innerHTML = '';
+            batchResults.style.display = 'none';
+            clearBatchOutputUrls();
+            fileInput.value = '';
+            currentFile = null;
+            fileMeta.style.display = 'none';
+            updateStatus('Single file mode enabled.', 'info');
+        }
+        renderBatchFileList();
+        updateModeUI();
+    });
 
-    // Close the informational dialog and restore keyboard focus to the page.
-    function closeModal() {
-        modalBackdrop.classList.remove('open');
-    }
+    dropZone.addEventListener('click', () => fileInput.click());
 
-    document.querySelectorAll('[data-modal]').forEach(button => {
-        button.addEventListener('click', () => openModal(button.dataset.modal));
+    dropZone.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            fileInput.click();
+        }
+    });
+
+    ['dragenter', 'dragover'].forEach(type => {
+        dropZone.addEventListener(type, event => {
+            event.preventDefault();
+            event.stopPropagation();
+            dropZone.classList.add('drag-over');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(type => {
+        dropZone.addEventListener(type, event => {
+            event.preventDefault();
+            event.stopPropagation();
+            dropZone.classList.remove('drag-over');
+        });
+    });
+
+    dropZone.addEventListener('drop', event => {
+        handleSelectedFiles(event.dataTransfer?.files || []);
+    });
+
+    togglePwdBtn.addEventListener('click', () => {
+        const visible = passwordInput.type === 'text';
+        passwordInput.type = visible ? 'password' : 'text';
+        togglePwdBtn.textContent = visible ? 'Show' : 'Hide';
+        togglePwdBtn.setAttribute('aria-label', visible ? 'Show password' : 'Hide password');
+    });
+
+    processBtn.addEventListener('click', startProcess);
+    clearBtn.addEventListener('click', clearAll);
+
+    cancelBtn.addEventListener('click', () => {
+        if (!processBtn.disabled) return;
+        cancelRequested = true;
+        updateStatus('Cancelling…', 'warning');
+    });
+
+    passwordInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !processBtn.disabled) startProcess();
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && modalBackdrop.classList.contains('show')) {
+            closeModal();
+            return;
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'o') {
+            event.preventDefault();
+            fileInput.click();
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'enter') {
+            event.preventDefault();
+            if (!processBtn.disabled) startProcess();
+        }
     });
 
     modalClose.addEventListener('click', closeModal);
-
-    modalBackdrop.addEventListener('click', (e) => {
-        if (e.target === modalBackdrop) closeModal();
+    modalBackdrop.addEventListener('click', event => {
+        if (event.target === modalBackdrop) closeModal();
     });
 
-    window.addEventListener('beforeunload', revokeOutputUrl);
+    document.querySelectorAll('[data-modal]').forEach(button => {
+        button.addEventListener('click', () => showModal(button.dataset.modal));
+    });
+
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
+            applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+    }
+
+    const savedTheme = localStorage.getItem('primeronin-theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+        applyTheme(savedTheme);
+    }
+
+    window.addEventListener('beforeunload', () => { revokeOutputUrl(); clearBatchOutputUrls(); });
+
+    // The UI is ready immediately. QPDF itself is lazy-loaded only when the user
+    // actually clicks Unlock File, which keeps initial page load lightweight.
+    setLoading(false);
+    updateModeUI();
+    resetProgress();
 </script>
 </body>
 </html>
