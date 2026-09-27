@@ -1,306 +1,619 @@
 # PrimeRonin PDF Unlocker
 
-A privacy-first, browser-based PDF password removal utility with two processing paths: direct PDF decryption and a Deep Recovery mode that reconstructs a readable PDF from rendered pages.
+A privacy-first, browser-based PDF password remover that processes PDF
+files locally in the browser.
+
+**Live application:**
+<https://skm-hpc.github.io/pdf-password-remover/>  
+**GitHub repository:** <https://github.com/skm-hpc/pdf-password-remover>
 
 > **Author:** PrimeRonin  
 > **License:** MIT  
 > **Runtime:** Modern web browser  
 > **Processing model:** Client-side / browser-only
 
+------------------------------------------------------------------------
+
 ## Overview
 
-PrimeRonin PDF Unlocker is a standalone HTML application. It does not require a backend, database, build system, or server-side API. PDF files and passwords are processed locally by JavaScript running in the user's browser.
+**PrimeRonin PDF Unlocker** is a standalone web application for removing
+password protection from PDF documents when the user has the right or
+permission to process those documents.
 
-The application first attempts to unlock the PDF directly with `pdf-lib`. If the PDF uses encryption that cannot be directly rewritten, the application falls back to a Deep Recovery pipeline using PDF.js and jsPDF.
+The application is designed around direct PDF decryption rather than
+converting document pages into images. The unlocked result remains a
+PDF, avoiding the quality and structural limitations associated with
+PNG/JPEG page reconstruction.
 
-## Features
+No backend, database, application server, or build system is required.
 
-- Unlock password-protected PDFs in the browser.
-- Standard PDF decryption using `pdf-lib`.
-- Deep Recovery fallback using `pdf.js` + `jsPDF`.
-- Drag-and-drop PDF selection.
-- PDF validation before processing.
-- Password visibility toggle.
-- File size and page-count information.
-- Configurable recovery/rendering quality.
-- Configurable JPEG quality for Deep Recovery.
-- Automatic portrait/landscape page handling.
-- Live processing progress.
-- Cancel processing support.
-- Clear/reset workflow.
-- Automatic output filename generation.
-- Dark/light theme support.
-- Responsive desktop and mobile interface.
-- Keyboard shortcuts for faster operation.
-- No application backend required.
+------------------------------------------------------------------------
 
-## Important: How Deep Recovery Works
+## Main Features
 
-The normal path attempts to load and save the decrypted PDF without changing its page content.
+### 🔐 Direct PDF Password Removal
 
-When direct decryption cannot produce a downloadable PDF, Deep Recovery:
+The primary unlock workflow removes the PDF encryption through a
+browser-based PDF decryption engine.
 
-1. Opens the password-protected PDF through PDF.js.
-2. Decrypts and renders each page in the browser.
-3. Converts the rendered page into a JPEG image.
-4. Places the rendered image on a new PDF page using jsPDF.
-5. Produces a new PDF without the original encryption layer.
+- PDF remains a PDF.
+- No PNG conversion.
+- No JPEG conversion.
+- No canvas-based page reconstruction for the normal unlock path.
+- Text remains PDF text.
+- Vector content remains PDF content.
+- PDF objects are retained as part of the decrypted PDF structure.
+- The resulting file can be downloaded directly from the browser.
 
-### Deep Recovery limitation
+### 📄 Single PDF Mode
 
-Because Deep Recovery rebuilds pages from rendered images, the resulting PDF may not preserve the original text layer, hyperlinks, annotations, form fields, bookmarks, vector objects, or accessibility metadata. Use the standard path whenever possible when preservation of the original PDF structure matters.
+Single PDF mode is enabled by default.
 
-## Privacy & Security
+1.  Select one PDF.
+2.  Enter its password.
+3.  Click **Unlock File**.
+4.  Download the unlocked PDF.
 
-The application is designed for local processing. Files and passwords are passed to JavaScript libraries running in the browser and are not intentionally uploaded to an application server.
+This keeps the normal workflow simple for users who only need to process
+one document.
 
-However, the application loads third-party JavaScript libraries from public CDNs. Users who require a fully offline or controlled environment should self-host the dependencies rather than relying on external CDN resources.
+### 📚 Multiple PDF Mode
 
-Do not use the tool to bypass access controls on documents you do not own or have permission to process. The included legal notice is informational and does not replace professional legal advice.
+Enable **Multiple PDFs** when several protected documents need to be
+processed.
+
+Multiple mode allows the user to:
+
+- Select multiple PDF files in one upload action.
+- Display every selected PDF as an individual file entry.
+- Enter a separate password for every PDF.
+- Match each password directly with its corresponding PDF.
+- Remove individual files from the queue.
+- Process all queued PDFs independently.
+- Continue processing other files if one file fails.
+
+Example:
+
+``` text
+invoice.pdf          Password: ********
+statement.pdf        Password: ********
+report.pdf            Password: ********
+document.pdf          Password: ********
+```
+
+Each document has its own password, so different PDFs can use different
+passwords.
+
+### 📥 Individual Downloads
+
+Every successfully unlocked PDF receives its own **Download** button.
+
+This allows users to download only the documents they need.
+
+### 📦 Download All Files
+
+After multiple PDFs have been successfully unlocked, **Download All
+Files** is available.
+
+The feature:
+
+- Collects all successfully unlocked PDFs.
+- Packages them into a ZIP archive.
+- Keeps the individual Download buttons available.
+- Excludes files that failed to unlock.
+- Provides one convenient download for the complete successful batch.
+
+The generated archive uses a PrimeRonin-specific filename such as:
+
+``` text
+PrimeRonin_Unlocked_PDFs_2026-09-27.zip
+```
+
+### 🖱️ Drag and Drop
+
+PDF files can be selected through the file picker or dragged into the
+upload area where supported by the active mode.
+
+### 👁️ Password Visibility
+
+Password fields include a Show/Hide control so the entered password can
+be verified before processing.
+
+### 🌓 Dark and Light Themes
+
+The interface supports both dark and light visual themes.
+
+The selected theme is remembered locally in the browser.
+
+### 📊 Processing Feedback
+
+The interface provides:
+
+- Processing status.
+- Progress information where available.
+- Success messages.
+- Error messages.
+- Cancellation support.
+- Individual batch processing results.
+
+### 📱 Responsive Interface
+
+The application is designed for:
+
+- Desktop browsers.
+- Laptop browsers.
+- Tablets.
+- Mobile browsers.
+
+------------------------------------------------------------------------
+
+## How It Works
+
+The normal processing architecture is:
+
+``` text
+Protected PDF
+     +
+Password
+     ↓
+Browser-side PDF decryption
+     ↓
+Unlocked PDF
+     ↓
+Browser download
+```
+
+The application does **not** intentionally upload the user's PDF or
+password to an application server.
+
+The important distinction is that the normal output is generated as PDF
+data rather than rendering every page into an image.
+
+------------------------------------------------------------------------
+
+## PDF Preservation
+
+The normal unlock workflow is intended to preserve the PDF as PDF data.
+
+Unlike image-based reconstruction, the normal path does not
+intentionally:
+
+- Render pages to PNG.
+- Render pages to JPEG.
+- Convert text into page images.
+- Rebuild every page with jsPDF.
+- Rasterize the document.
+
+The output is nevertheless a newly written/decrypted PDF file, so it
+should not be expected to be byte-for-byte identical to the encrypted
+source file.
+
+PDFs containing digital signatures may require special consideration
+because rewriting a PDF can affect signature validity.
+
+------------------------------------------------------------------------
+
+## Privacy
+
+PrimeRonin PDF Unlocker is designed for client-side processing.
+
+### Local processing
+
+The selected PDF and password are handled by JavaScript running in the
+user's browser.
+
+The application does not intentionally send the document to a
+PDF-processing backend.
+
+### No password storage
+
+PDF passwords are not intended to be stored in:
+
+- LocalStorage.
+- Cookies.
+- URLs.
+- Analytics systems.
+
+### Third-party resources
+
+The application may load required JavaScript libraries from public CDN
+resources.
+
+Therefore:
+
+- A network connection may be required to load the application
+  dependencies.
+- The PDF itself is processed in the browser.
+- Users requiring a completely offline environment can self-host the
+  required dependencies.
+
+------------------------------------------------------------------------
+
+## Security and Responsible Use
+
+This tool should only be used for documents that you own or are
+explicitly authorized to process.
+
+Do not use it to bypass access controls on documents without permission.
+
+The application is a document-processing utility, not a
+password-cracking or password-guessing system.
+
+------------------------------------------------------------------------
+
+## Technologies
+
+| Technology       | Purpose                                               |
+|------------------|-------------------------------------------------------|
+| HTML5            | Application structure                                 |
+| CSS3             | Responsive interface, themes and animations           |
+| JavaScript       | Application logic and state management                |
+| QPDF WebAssembly | Direct PDF decryption in the browser                  |
+| ZIP generation   | Packaging successfully unlocked PDFs for Download All |
+
+The application is intentionally implemented as a single-page HTML
+application.
+
+------------------------------------------------------------------------
 
 ## Project Structure
 
-```text
-.
+``` text
+pdf-password-remover/
 ├── index.html
 ├── README.md
 └── LICENSE
 ```
 
-The supplied application can be renamed to `index.html` for GitHub Pages deployment.
+The main application is contained in `index.html`.
 
-## Technologies
+No Node.js project or build pipeline is required for the basic
+application.
 
-| Technology | Purpose |
-|---|---|
-| HTML5 | Application structure |
-| CSS3 | Responsive UI, themes and animations |
-| JavaScript | Application logic and state management |
-| PDF-LIB | Direct PDF loading, decryption and saving |
-| PDF.js | Password-protected PDF parsing and page rendering |
-| jsPDF | Deep Recovery PDF reconstruction |
-
-## CDN Dependencies
-
-The application currently loads:
-
-- PDF-LIB from `unpkg.com`
-- PDF.js from `cdnjs.cloudflare.com`
-- PDF.js worker from `cdnjs.cloudflare.com`
-- jsPDF from `cdnjs.cloudflare.com`
-
-For production environments where dependency integrity and availability are critical, consider pinning exact library versions and self-hosting the assets.
+------------------------------------------------------------------------
 
 ## Running Locally
 
-No build step is required.
+### Option 1 — Open the HTML file
 
-### Option 1 — Open directly
+Clone the repository:
 
-Rename the application to `index.html` and open it in a modern browser.
+``` bash
+git clone https://github.com/skm-hpc/pdf-password-remover.git
+cd pdf-password-remover
+```
 
-### Option 2 — Local HTTP server
+Then open:
+
+``` text
+index.html
+```
+
+in a modern browser.
+
+### Option 2 — Use a local HTTP server
+
+A local HTTP server is recommended for consistent browser behavior.
 
 Using Python:
 
-```bash
+``` bash
 python3 -m http.server 8080
 ```
 
 Then open:
 
-```text
+``` text
 http://localhost:8080
 ```
 
-A local HTTP server is recommended for consistent browser behavior and easier testing.
+------------------------------------------------------------------------
 
-## GitHub Upload
+## GitHub Pages
 
-### 1. Create the repository
+The project is configured as a static web application and can be
+published through GitHub Pages.
 
-Create a new GitHub repository, for example:
+Current repository:
 
-```text
-pdf-password-remover
+``` text
+https://github.com/skm-hpc/pdf-password-remover
 ```
 
-### 2. Prepare the files
+Current live application:
 
-Rename:
-
-```text
-PrimeRonin_PDF_Unlocker.html
+``` text
+https://skm-hpc.github.io/pdf-password-remover/
 ```
 
-to:
-
-```text
-index.html
-```
-
-Then place these files in the repository:
-
-```text
-index.html
-README.md
-LICENSE
-```
-
-### 3. Initialize Git
-
-```bash
-git init
-git add index.html README.md LICENSE
-git commit -m "Initial PrimeRonin PDF Unlocker release"
-```
-
-### 4. Connect the GitHub repository
-
-Replace the URL with your actual GitHub repository:
-
-```bash
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/pdf-password-remover.git
-git push -u origin main
-```
-
-### 5. Enable GitHub Pages
+### GitHub Pages configuration
 
 In GitHub:
 
-```text
+``` text
 Repository
-  → Settings
-  → Pages
-  → Build and deployment
-  → Deploy from a branch
-  → main / root
-  → Save
+→ Settings
+→ Pages
+→ Build and deployment
+→ Deploy from a branch
+→ main / root
+→ Save
 ```
 
-GitHub will then publish `index.html` as the website entry point.
+`index.html` is the website entry point.
 
-## Recommended Git Workflow
+------------------------------------------------------------------------
 
-Before making changes:
+## Development Workflow
 
-```bash
+Check the working tree:
+
+``` bash
 git status
+```
+
+Review changes:
+
+``` bash
+git diff
+```
+
+View history:
+
+``` bash
+git log --oneline --decorate --graph --all
+```
+
+Pull the latest remote changes:
+
+``` bash
 git pull --rebase origin main
 ```
 
-After changes:
+After making changes:
 
-```bash
+``` bash
 git add .
-git commit -m "Improve PDF recovery workflow"
+git commit -m "feat: describe the main feature"
 git push origin main
 ```
 
-Useful history commands:
+### Recommended commit message style
 
-```bash
-git log --oneline --decorate --graph --all
-git diff
-git status
+Use feature-oriented messages for user-visible functionality.
+
+Examples:
+
+``` bash
+git commit -m "feat: add multiple PDF unlock with individual passwords"
 ```
+
+``` bash
+git commit -m "feat: add download all unlocked PDFs as ZIP"
+```
+
+``` bash
+git commit -m "fix: improve encrypted PDF password handling"
+```
+
+``` bash
+git commit -m "ui: improve PDF upload workflow"
+```
+
+``` bash
+git commit -m "docs: update project documentation"
+```
+
+------------------------------------------------------------------------
+
+## Batch Processing Workflow
+
+Multiple PDF mode follows this sequence:
+
+``` text
+Enable Multiple PDFs
+        ↓
+Upload multiple PDFs
+        ↓
+Create individual PDF entries
+        ↓
+Enter password for each PDF
+        ↓
+Unlock All Files
+        ↓
+Process each PDF independently
+        ↓
+Display individual results
+        ↓
+ ┌───────────────┐
+ │ Download      │ ← individual file
+ └───────────────┘
+        +
+ ┌─────────────────────┐
+ │ Download All Files  │ ← ZIP archive
+ └─────────────────────┘
+```
+
+A password belongs only to the PDF entry where it was entered.
+
+------------------------------------------------------------------------
+
+## Error Handling
+
+### Incorrect password
+
+Verify that the password is correct.
+
+PDF passwords are case-sensitive.
+
+If a batch contains several PDFs, an incorrect password for one PDF
+should be reported against that specific file rather than silently
+applying that password to every document.
+
+### Corrupted or unsupported PDF
+
+A PDF may fail if it is:
+
+- Corrupted.
+- Incomplete.
+- Non-standard.
+- Using an encryption configuration not supported by the browser-side
+  processing engine.
+
+Try opening the source PDF in a trusted desktop PDF viewer first to
+verify that the document itself is readable.
+
+### Browser memory
+
+Large PDFs and large multi-file batches can consume significant browser
+memory.
+
+For very large batches:
+
+- Process fewer files at a time.
+- Close unnecessary browser tabs.
+- Allow the browser time to release memory after large operations.
+
+### Download All
+
+Only successfully generated unlocked PDFs are included in the batch ZIP.
+
+Individual Download buttons remain available even when Download All is
+used.
+
+------------------------------------------------------------------------
+
+## Limitations
+
+PrimeRonin PDF Unlocker does not guarantee successful processing of
+every possible PDF.
+
+Potential limitations include:
+
+- Unsupported or unusual PDF encryption configurations.
+- Corrupted PDF files.
+- Extremely large documents.
+- Browser memory limitations.
+- Browser compatibility differences.
+- Digital-signature validity after PDF rewriting.
+- External CDN availability when dependencies are not self-hosted.
+
+The output is a rewritten decrypted PDF rather than a byte-for-byte copy
+of the encrypted source.
+
+------------------------------------------------------------------------
 
 ## Code Organization
 
-The single-page application is intentionally self-contained.
+The application is intentionally self-contained in `index.html`.
+
+The source is organized into:
 
 ### HTML
 
-Defines the upload interface, password controls, recovery options, progress display, dialogs, footer and legal notices.
+Defines:
+
+- Application layout.
+- PDF upload controls.
+- Single/multiple mode controls.
+- Password inputs.
+- Batch file entries.
+- Processing buttons.
+- Individual download controls.
+- Download All control.
+- Status and progress areas.
+- Theme controls.
+- Informational dialogs.
+- Privacy/legal notices.
 
 ### CSS
 
-Contains the complete visual system, including:
+Contains:
 
-- CSS custom properties
-- Dark/light themes
-- Responsive breakpoints
-- Drag-and-drop states
-- Buttons and controls
-- Progress indicators
-- Toast notifications
-- Modal dialogs
+- Application theme variables.
+- Dark/light themes.
+- Responsive layouts.
+- Upload states.
+- File cards.
+- Password controls.
+- Modern action buttons.
+- Progress indicators.
+- Result cards.
+- Download controls.
+- Toast notifications.
+- Modal dialogs.
 
 ### JavaScript
 
-The main processing flow is organized around these responsibilities:
+Handles:
 
-- `selectFile()` — validates and registers the selected PDF.
-- `detectPageCount()` — obtains PDF metadata through PDF.js.
-- `startProcess()` — coordinates the complete unlock workflow.
-- `visualRecoveryUnlock()` — performs page-by-page reconstruction.
-- `finishProcess()` — creates the downloadable PDF.
-- `resetUI()` — resets transient state.
-- `clearAll()` — clears the entire application form.
-- `updateStatus()` — displays processing messages.
-- `setLoading()` — controls processing state.
-- `applyTheme()` — manages theme persistence.
-- `openModal()` / `closeModal()` — manage informational dialogs.
+- PDF validation.
+- File selection.
+- Multiple-file queue management.
+- Individual password management.
+- PDF decryption.
+- Batch processing.
+- Cancellation.
+- Progress updates.
+- Blob creation.
+- Individual downloads.
+- ZIP generation.
+- Download All.
+- Theme persistence.
+- UI state management.
 
-## Troubleshooting
+------------------------------------------------------------------------
 
-### "Incorrect password"
+## Design Principles
 
-Verify that the password is exactly correct. PDF passwords are case-sensitive.
+The project follows several core principles:
 
-### PDF opens but Deep Recovery fails
+1.  **PDF stays PDF** — avoid unnecessary image conversion.
+2.  **Client-side processing** — keep document processing in the
+    browser.
+3.  **Password isolation** — each queued PDF has its own password.
+4.  **Single mode by default** — keep the common workflow simple.
+5.  **Batch when needed** — enable multiple processing explicitly.
+6.  **Individual control** — every batch result can be downloaded
+    independently.
+7.  **Batch convenience** — provide a single ZIP download for successful
+    results.
+8.  **No unnecessary persistence** — do not store document passwords.
+9.  **Responsive UI** — maintain usability across screen sizes.
+10. **Transparent errors** — report failures against the relevant PDF.
 
-Try a lower rendering scale or JPEG quality. Very large or highly complex PDFs can require substantial browser memory.
-
-### Browser becomes slow
-
-Deep Recovery renders every page into an image. Large PDFs, high rendering scales, and maximum JPEG quality increase memory and CPU usage.
-
-### Output quality is lower than the original
-
-Use the Standard Decryption path when available. Deep Recovery is a compatibility fallback and is inherently raster-based.
-
-### GitHub Pages does not show the application
-
-Confirm that the main application file is named exactly:
-
-```text
-index.html
-```
-
-Then verify that GitHub Pages is configured to publish the correct branch and root directory.
-
-## Development Guidelines
-
-When extending the application:
-
-1. Preserve the existing standard decryption path.
-2. Preserve Deep Recovery as a fallback rather than replacing it.
-3. Keep processing client-side unless a backend is intentionally introduced.
-4. Avoid storing PDF passwords in localStorage, cookies, URLs, or analytics systems.
-5. Revoke generated Blob URLs when they are no longer needed.
-6. Keep third-party dependencies version-pinned for reproducible deployments.
-7. Document user-visible behavior changes in the README.
-8. Test with both small and large PDFs before release.
-
-## Suggested Commit Messages
-
-```text
-feat: add PDF recovery quality controls
-fix: improve encrypted PDF handling
-fix: release generated blob URLs
-ui: improve mobile PDF upload layout
-docs: update GitHub deployment guide
-refactor: organize PDF processing helpers
-```
+------------------------------------------------------------------------
 
 ## License
 
-This project is intended to be released under the MIT License. See `LICENSE` for the complete license text.
+This project is released under the MIT License.
+
+See [`LICENSE`](LICENSE) for the complete license text.
+
+------------------------------------------------------------------------
 
 ## Disclaimer
 
-This software is provided as-is without warranty. Users are responsible for ensuring that they have the legal right or explicit permission to remove protection from documents they process.
+This software is provided **as-is**, without warranty.
 
-© 2026 PrimeRonin. All rights reserved where applicable.
+Users are responsible for ensuring that they have the legal right or
+explicit permission to remove protection from every document they
+process.
+
+PrimeRonin does not condone unauthorized access to protected documents.
+
+------------------------------------------------------------------------
+
+## Author
+
+**PrimeRonin**
+
+GitHub:
+
+<https://github.com/skm-hpc/pdf-password-remover>
+
+Live application:
+
+<https://skm-hpc.github.io/pdf-password-remover/>
+
+© 2026 PrimeRonin.
